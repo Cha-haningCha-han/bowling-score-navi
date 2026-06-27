@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ボウリング・ナビゲーターPro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary: #007af4;
+            --danger: #ff3b30;
+            --success: #34c759;
+            --warning: #ff9500;
+            --bg-color: #f0f2f5;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+        h1 { text-align: center; font-size: 1.2rem; margin-bottom: 15px; color: #1a1a1a; }
+        
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .header-actions input { border: 1px solid #ddd; padding: 8px; border-radius: 6px; font-size: 1rem; width: 35%; }
+        .btn { border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+        .btn-share { background: var(--primary); color: white; }
+        .btn-reset { background: var(--danger); color: white; }
+        .btn:active { opacity: 0.8; }
+
+        .score-info { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 15px; border-radius: 8px; }
+        .score-info label { font-size: 0.85rem; color: #666; display: block; margin-bottom: 3px; }
+        .score-info input { width: 60px; padding: 5px; font-size: 1.1rem; text-align: center; border: 1px solid #ccc; border-radius: 5px; }
+        .max-score { font-size: 1.4rem; font-weight: bold; color: var(--danger); }
+
+        /* 画像化エリア */
+        #captureArea { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #eee; box-shadow: none; }
+        #captureHeader { text-align: center; font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: #333; }
+
+        /* スコアボードのスタイル */
+        .score-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 10px; }
+        .frame { border: 1px solid #ddd; border-radius: 6px; text-align: center; overflow: hidden; background: #fff; }
+        .frame.interactive { cursor: pointer; }
+        .frame.interactive:active { background: #f0f0f0; }
+        .frame-number { background: #e5e5ea; font-size: 0.75rem; padding: 3px 0; font-weight: bold; color: #555; }
+        .shots { display: flex; border-bottom: 1px solid #eee; height: 25px; line-height: 25px; font-size: 0.9rem; }
+        .shot { flex: 1; min-height: 25px; }
+        .shot:not(:last-child) { border-right: 1px solid #eee; }
+        .frame-total { height: 30px; line-height: 30px; font-weight: bold; font-size: 1rem; background: #fafafa; }
+
+        /* 装飾 */
+        .strike-mark { color: var(--danger); font-weight: bold; }
+        .spare-mark { color: var(--primary); font-weight: bold; }
+
+        /* シミュレーション用ボードの特殊スタイル */
+        .sim-section { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #ccc; }
+        .sim-title { font-size: 0.9rem; font-weight: bold; color: #666; margin-bottom: 10px; }
+        .sim-board .frame { background: #fdfbf7; border-color: #e6e4d9; opacity: 0.85; }
+        .sim-board .frame-number { background: #f4ecce; color: #8a7b45; }
+        .sim-board .frame-total { background: #fcfbfa; color: #555; }
+
+        .message-area { background: #e1f5fe; border-left: 5px solid var(--primary); padding: 12px; border-radius: 6px; font-size: 0.95rem; line-height: 1.5; margin-bottom: 15px; }
+
+        /* モーダル */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: white; padding: 20px; border-radius: 15px; width: 85%; max-width: 300px; text-align: center; }
+        .modal-title { font-size: 1rem; font-weight: bold; margin-bottom: 5px; }
+        .modal-subtitle { font-size: 0.8rem; color: #666; margin-bottom: 15px; }
+        .button-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .input-btn { background: #e5e5ea; border: none; padding: 15px 0; font-size: 1.2rem; font-weight: bold; border-radius: 10px; cursor: pointer; }
+        .input-btn:active { background: #ccc; }
+        .btn-strike { grid-column: span 3; background: var(--danger); color: white; font-size: 1.4rem; }
+        .btn-spare { grid-column: span 3; background: var(--primary); color: white; font-size: 1.4rem; }
+        .btn-gutter { background: #8e8e93; color: white; }
+        .cancel-btn { grid-column: span 3; background: #f2f2f7; color: #333; font-size: 1rem; padding: 10px 0; margin-top: 10px; }
+        .delete-btn { grid-column: span 3; background: var(--warning); color: white; font-size: 1rem; padding: 10px 0; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>🎳 ボウリング・ナビゲーターPro</h1>
+
+    <div class="card">
+        <div class="header-actions">
+            <input type="text" id="playerName" placeholder="ペンネーム" onchange="updateName()">
+            <button class="btn btn-share" id="shareBtn" onclick="shareScore()">画像シェア📤</button>
+            <button class="btn btn-reset" onclick="resetGame()">リセット🔄</button>
+        </div>
+        <div class="score-info">
+            <div>
+                <label>目標スコア</label>
+                <input type="number" id="targetScore" value="180" min="0" max="300" oninput="saveData(); calculateScore()">
+            </div>
+            <div style="text-align: right;">
+                <label>現在の最大可能点</label>
+                <div class="max-score" id="maxPossibleScore">300</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="captureArea" class="card">
+        <div id="captureHeader">🎳 匿名ボウラーさんのスコア</div>
+        
+        <div id="mainBoardContainer"></div>
+        
+        <div class="message-area" id="messageArea">
+            💡 1フレーム目をタップして、スコア入力を始めてみましょう！
+        </div>
+
+        <div class="sim-section">
+            <div class="sim-title">🎯 目標達成へのシミュレーションルート</div>
+            <div id="simBoardContainer"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="inputModal">
+        <div class="modal-content">
+            <div class="modal-title" id="modalTitle">フレームの入力</div>
+            <div class="modal-subtitle" id="modalSubtitle">結果を選んでください</div>
+            <div class="button-grid" id="buttonGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        let savedData = localStorage.getItem('bowlingData');
+        let gameData = savedData ? JSON.parse(savedData) : Array.from({length: 11}, () => [null, null, null]);
+        let currentFrame = null;
+        let currentShotIdx = null;
+
+        window.onload = () => {
+            // HTMLの骨組みをJSで生成（現在用とシミュレーション用）
+            document.getElementById('mainBoardContainer').innerHTML = generateBoardHTML('', true);
+            document.getElementById('simBoardContainer').innerHTML = generateBoardHTML('sim_', false, 'sim-board');
+
+            const savedName = localStorage.getItem('playerName');
+            if(savedName) document.getElementById('playerName').value = savedName;
+            
+            const savedTarget = localStorage.getItem('targetScore');
+            if(savedTarget) document.getElementById('targetScore').value = savedTarget;
+            
+            updateName();
+            calculateScore(); 
+        };
+
+        // スコアボードのHTML構造を作る関数
+        function generateBoardHTML(prefix, isInteractive, extraClass = '') {
+            let html = `<div class="score-board ${extraClass}">`;
+            for (let i = 1; i <= 5; i++) {
+                let cl = isInteractive ? 'frame interactive' : 'frame';
+                let ev = isInteractive ? `onclick="openInputModal(${i})"` : '';
+                html += `<div class="${cl}" ${ev}><div class="frame-number">${i}</div>
+                    <div class="shots"><div class="shot" id="${prefix}s${i}-1"></div><div class="shot" id="${prefix}s${i}-2"></div></div>
+                    <div class="frame-total" id="${prefix}t${i}"></div></div>`;
+            }
+            html += `</div><div class="score-board ${extraClass}">`;
+            for (let i = 6; i <= 10; i++) {
+                let cl = isInteractive ? 'frame interactive' : 'frame';
+                let ev = isInteractive ? `onclick="openInputModal(${i})"` : '';
+                let t3 = i === 10 ? `<div class="shot" id="${prefix}s10-3"></div>` : '';
+                html += `<div class="${cl}" ${ev}><div class="frame-number">${i}</div>
+                    <div class="shots"><div class="shot" id="${prefix}s${i}-1"></div><div class="shot" id="${prefix}s${i}-2"></div>${t3}</div>
+                    <div class="frame-total" id="${prefix}t${i}"></div></div>`;
+            }
+            html += `</div>`;
+            return html;
+        }
+
+        function updateName() {
+            const name = document.getElementById('playerName').value || '匿名ボウラー';
+            document.getElementById('captureHeader').innerText = `🎳 ${name}さんのスコア`;
+            saveData();
+        }
+
+        function saveData() {
+            localStorage.setItem('bowlingData', JSON.stringify(gameData));
+            localStorage.setItem('playerName', document.getElementById('playerName').value);
+            localStorage.setItem('targetScore', document.getElementById('targetScore').value);
+        }
+
+        function resetGame() {
+            if(confirm("スコアをすべてクリアして最初からやり直しますか？")) {
+                gameData = Array.from({length: 11}, () => [null, null, null]);
+                saveData();
+                calculateScore();
+            }
+        }
+
+        async function shareScore() {
+            const captureArea = document.getElementById('captureArea');
+            const name = document.getElementById('playerName').value || '匿名ボウラー';
+            const shareBtn = document.getElementById('shareBtn');
+            const originalBtnText = shareBtn.innerText;
+            
+            shareBtn.innerText = "生成中...";
+            shareBtn.disabled = true;
+
+            try {
+                const canvas = await html2canvas(captureArea, { backgroundColor: "#ffffff", scale: 2 });
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], 'bowling_score.png', { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({ title: 'ボウリングスコア', text: `${name}さんのスコア履歴！ #ボウリング`, files: [file] });
+                        } catch (error) {}
+                    } else {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = `bowling_score_${name}.png`;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        alert("画像をダウンロードしました！");
+                    }
+                    shareBtn.innerText = originalBtnText; shareBtn.disabled = false;
+                }, 'image/png');
+            } catch (err) {
+                alert("生成に失敗しました。");
+                shareBtn.innerText = originalBtnText; shareBtn.disabled = false;
+            }
+        }
+
+        // --- コアロジック分離（汎用的なスコア計算） ---
+        function computeScoreLogic(data) {
+            let totalScore = 0;
+            let displayTotals = Array(11).fill("");
+            let rolls = [];
+            for (let f = 1; f <= 9; f++) {
+                if (data[f][0] === 10) rolls.push({ pins: 10 });
+                else {
+                    if (data[f][0] !== null) rolls.push({ pins: data[f][0] });
+                    if (data[f][1] !== null) rolls.push({ pins: data[f][1] });
+                }
+            }
+            if (data[10][0] !== null) rolls.push({ pins: data[10][0] });
+            if (data[10][1] !== null) rolls.push({ pins: data[10][1] });
+            if (data[10][2] !== null) rolls.push({ pins: data[10][2] });
+
+            let rollIdx = 0;
+            for (let f = 1; f <= 9; f++) {
+                if (data[f][0] === null) break;
+                if (data[f][0] === 10) { 
+                    if (rolls[rollIdx+1] && rolls[rollIdx+2]) {
+                        totalScore += 10 + rolls[rollIdx+1].pins + rolls[rollIdx+2].pins;
+                        displayTotals[f] = totalScore;
+                    }
+                    rollIdx += 1;
+                } else { 
+                    if (data[f][1] === null) break;
+                    if (data[f][0] + data[f][1] === 10) { 
+                        if (rolls[rollIdx+2]) {
+                            totalScore += 10 + rolls[rollIdx+2].pins;
+                            displayTotals[f] = totalScore;
+                        }
+                    } else { 
+                        totalScore += data[f][0] + data[f][1];
+                        displayTotals[f] = totalScore;
+                    }
+                    rollIdx += 2;
+                }
+            }
+            if (data[10][0] !== null && data[10][1] !== null) {
+                let f10Total = data[10][0] + data[10][1];
+                if (data[10][0] === 10 || f10Total === 10) { 
+                    if (data[10][2] !== null) {
+                        totalScore += f10Total + data[10][2];
+                        displayTotals[10] = totalScore;
+                    }
+                } else {
+                    totalScore += f10Total;
+                    displayTotals[10] = totalScore;
+                }
+            }
+            return { total: totalScore, display: displayTotals };
+        }
+
+        // 画面のマス目を描画する共通関数
+        function renderBoardUI(data, scoreData, prefix) {
+            for (let f = 1; f <= 10; f++) {
+                document.getElementById(`${prefix}t${f}`).innerText = scoreData.display[f];
+                if (f < 10) {
+                    let s1 = data[f][0]; let s2 = data[f][1];
+                    document.getElementById(`${prefix}s${f}-1`).innerHTML = s1 === 10 ? `<span class="strike-mark">X</span>` : (s1 === 0 ? 'G' : (s1 !== null ? s1 : ''));
+                    document.getElementById(`${prefix}s${f}-2`).innerHTML = s1 === 10 ? '' : (s1 !== null && s2 !== null && s1 + s2 === 10 ? `<span class="spare-mark">/</span>` : (s2 === 0 ? '-' : (s2 !== null ? s2 : '')));
+                } else {
+                    let s1 = data[10][0]; let s2 = data[10][1]; let s3 = data[10][2];
+                    document.getElementById(`${prefix}s10-1`).innerHTML = s1 === 10 ? `<span class="strike-mark">X</span>` : (s1 === 0 ? 'G' : (s1 !== null ? s1 : ''));
+                    if (s1 === 10) document.getElementById(`${prefix}s10-2`).innerHTML = s2 === 10 ? `<span class="strike-mark">X</span>` : (s2 === 0 ? 'G' : (s2 !== null ? s2 : ''));
+                    else document.getElementById(`${prefix}s10-2`).innerHTML = s1 !== null && s2 !== null && s1 + s2 === 10 ? `<span class="spare-mark">/</span>` : (s2 === 0 ? '-' : (s2 !== null ? s2 : ''));
+                    
+                    if (s1 === 10 || (s1 !== null && s2 !== null && s1 + s2 === 10)) {
+                        if (s1 === 10 && s2 === 10) document.getElementById(`${prefix}s10-3`).innerHTML = s3 === 10 ? `<span class="strike-mark">X</span>` : (s3 === 0 ? 'G' : (s3 !== null ? s3 : ''));
+                        else if (s1 === 10 && s2 !== 10) document.getElementById(`${prefix}s10-3`).innerHTML = s2 !== null && s3 !== null && s2 + s3 === 10 ? `<span class="spare-mark">/</span>` : (s3 === 0 ? '-' : (s3 !== null ? s3 : ''));
+                        else document.getElementById(`${prefix}s10-3`).innerHTML = s3 === 10 ? `<span class="strike-mark">X</span>` : (s3 === 0 ? 'G' : (s3 !== null ? s3 : ''));
+                    } else document.getElementById(`${prefix}s10-3`).innerText = '';
+                }
+            }
+        }
+
+        // 🎯 メインの計算処理
+        function calculateScore() {
+            const target = parseInt(document.getElementById('targetScore').value) || 0;
+            const currentResult = computeScoreLogic(gameData);
+            
+            // 1. メインボード描画
+            renderBoardUI(gameData, currentResult, '');
+
+            // 2. 最大可能スコア計算（残りをすべてストライクで埋める）
+            let maxData = JSON.parse(JSON.stringify(gameData));
+            for(let i=1; i<=10; i++) {
+                if(maxData[i][0] === null) {
+                    if(i<10) maxData[i] = [10, 0, null];
+                    else maxData[i] = [10, 10, 10];
+                } else if (i === 10) {
+                    if(maxData[10][1] === null) maxData[10] = [10, 10, 10];
+                    else if(maxData[10][2] === null && (maxData[10][0]===10 || maxData[10][0]+maxData[10][1]===10)) maxData[10][2] = 10;
+                }
+            }
+            let maxScoreResult = computeScoreLogic(maxData);
+            let currentMax = maxScoreResult.display.slice().reverse().find(t => t !== "") || 0;
+            document.getElementById('maxPossibleScore').innerText = currentMax;
+
+            // 3. 🎯 目標達成ルート（シミュレーション）の自動生成エンジン
+            let simData = JSON.parse(JSON.stringify(gameData));
+            let emptyFrames = [];
+            for (let i = 1; i <= 10; i++) {
+                if (simData[i][0] === null) {
+                    emptyFrames.push(i);
+                    // 基準は手堅い「9スペア」埋め
+                    if (i < 10) simData[i] = [9, 1, null]; else simData[i] = [9, 1, 9];
+                }
+            }
+            
+            if (emptyFrames.length > 0) {
+                if (currentMax <= target) {
+                    simData = maxData; // 無理な場合は最大スコアへのルートを表示
+                } else {
+                    let getSim = () => computeScoreLogic(simData).display.slice().reverse().find(t => t !== "") || 0;
+                    let simScore = getSim();
+                    
+                    // 足りない場合は後ろのフレームからストライクにアップグレード
+                    if (simScore < target) {
+                        for (let i = emptyFrames.length - 1; i >= 0; i--) {
+                            let f = emptyFrames[i];
+                            simData[f] = f < 10 ? [10, 0, null] : [10, 10, 10];
+                            if (getSim() >= target) break;
+                        }
+                    }
+                    // オーバーしている場合は手前のフレームからオープン（ミス）にダウングレードして現実的に
+                    let loopCount = 0;
+                    while (getSim() > target && loopCount < 20) {
+                        loopCount++;
+                        let changed = false;
+                        for (let f of emptyFrames) {
+                            let orig = JSON.parse(JSON.stringify(simData[f]));
+                            if (f < 10) {
+                                if (simData[f][0] === 10) simData[f] = [9, 1, null];
+                                else if (simData[f][1] === 1) simData[f] = [9, 0, null];
+                                else if (simData[f][0] > 0) simData[f] = [simData[f][0]-1, 0, null];
+                            } else {
+                                if (simData[10][0] === 10) simData[10] = [9, 1, 9];
+                                else if (simData[10][1] === 1) simData[10] = [9, 0, null];
+                            }
+                            if (getSim() < target) simData[f] = orig; // 下がりすぎたら元に戻す
+                            else { changed = true; break; }
+                        }
+                        if (!changed) break;
+                    }
+                }
+            }
+            
+            // シミュレーションボードの描画
+            let simResult = computeScoreLogic(simData);
+            renderBoardUI(simData, simResult, 'sim_');
+
+            // 4. メッセージエリアの更新
+            const messageArea = document.getElementById('messageArea');
+            let currentCompletedFrame = currentResult.display.lastIndexOf(currentResult.display.slice().reverse().find(t => t !== "")) || 0;
+            if(currentCompletedFrame === -1) currentCompletedFrame = 0;
+
+            if (currentCompletedFrame === 0) {
+                messageArea.innerHTML = "💡 1フレーム目をタップして入力を開始！下のシミュレーションがリアルタイムで変化します。";
+                messageArea.style.borderLeftColor = "var(--primary)"; messageArea.style.backgroundColor = "#e1f5fe";
+            } else if (currentCompletedFrame === 10) {
+                let finalScore = currentResult.display[10];
+                if (finalScore >= target) {
+                    messageArea.innerHTML = `🎉 <b>${finalScore}点！</b> 目標クリア！「画像シェア」でこの軌跡を自慢しましょう！`;
+                    messageArea.style.borderLeftColor = "var(--success)"; messageArea.style.backgroundColor = "#e8f5e9";
+                } else {
+                    messageArea.innerHTML = `🏁 ゲーム終了。目標まであと <b>${target - finalScore}点</b> でした！`;
+                    messageArea.style.borderLeftColor = "var(--warning)"; messageArea.style.backgroundColor = "#fff3e0";
+                }
+            } else {
+                let currentScore = currentResult.display[currentCompletedFrame];
+                let scoreNeeded = target - currentScore;
+                if (currentMax < target) {
+                    messageArea.innerHTML = `⚠️ 目標達成は難しそうですが、下のシミュレーションは<b>「自己ベスト（${currentMax}点）ルート」</b>に切り替わりました！`;
+                    messageArea.style.borderLeftColor = "var(--danger)"; messageArea.style.backgroundColor = "#ffebee";
+                } else {
+                    messageArea.innerHTML = `🔥 【${currentCompletedFrame}フレーム終了】 目標まであと <b>${scoreNeeded}点</b>！<br>下部のシミュレーションルートをなぞるように狙いましょう！`;
+                    messageArea.style.borderLeftColor = "var(--primary)"; messageArea.style.backgroundColor = "#e1f5fe";
+                }
+            }
+        }
+
+        // --- モーダル制御関連（前回から変更なし） ---
+        function openInputModal(frameNum) {
+            currentFrame = frameNum;
+            if (frameNum < 10) {
+                if (gameData[frameNum][0] === null || gameData[frameNum][0] === 10 || gameData[frameNum][1] !== null) currentShotIdx = 0; 
+                else currentShotIdx = 1;
+            } else {
+                if (gameData[10][0] === null) currentShotIdx = 0;
+                else if (gameData[10][1] === null) currentShotIdx = 1;
+                else if (gameData[10][2] === null && (gameData[10][0] === 10 || gameData[10][0] + gameData[10][1] === 10)) currentShotIdx = 2;
+                else currentShotIdx = 0; 
+            }
+            renderModalButtons();
+            document.getElementById('inputModal').style.display = 'flex';
+        }
+        function closeModal() { document.getElementById('inputModal').style.display = 'none'; }
+        
+        function renderModalButtons() {
+            const grid = document.getElementById('buttonGrid');
+            const subtitle = document.getElementById('modalSubtitle');
+            document.getElementById('modalTitle').innerText = `${currentFrame}フレーム目 - ${currentShotIdx + 1}投目`;
+            grid.innerHTML = '';
+            if (currentFrame < 10) {
+                if (currentShotIdx === 0) {
+                    subtitle.innerText = "1投目の結果を選んでください";
+                    grid.innerHTML += `<button class="input-btn btn-strike" onclick="executeInput(10)">STRIKE (X)</button>`;
+                    grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">G (Gutter)</button>`;
+                    for (let i = 9; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                } else {
+                    subtitle.innerText = "2投目の結果を選んでください";
+                    const firstShot = gameData[currentFrame][0] || 0;
+                    grid.innerHTML += `<button class="input-btn btn-spare" onclick="executeInput('spare')">SPARE (/)</button>`;
+                    grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">- (0本)</button>`;
+                    for (let i = 10 - firstShot - 1; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                }
+            } else {
+                subtitle.innerText = "投球結果を選んでください";
+                let first = gameData[10][0]; let second = gameData[10][1];
+                if (currentShotIdx === 0) {
+                    grid.innerHTML += `<button class="input-btn btn-strike" onclick="executeInput(10)">STRIKE (X)</button>`;
+                    grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">G</button>`;
+                    for (let i = 9; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                } else if (currentShotIdx === 1) {
+                    if (first === 10) {
+                        grid.innerHTML += `<button class="input-btn btn-strike" onclick="executeInput(10)">STRIKE (X)</button>`;
+                        grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">G</button>`;
+                        for (let i = 9; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                    } else {
+                        grid.innerHTML += `<button class="input-btn btn-spare" onclick="executeInput('spare')">SPARE (/)</button>`;
+                        grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">-</button>`;
+                        for (let i = 10 - (first || 0) - 1; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                    }
+                } else if (currentShotIdx === 2) {
+                    if (first === 10 || first + second === 10) {
+                        if ((first === 10 && second === 10) || first + (second || 0) === 10 || second === 10) {
+                            grid.innerHTML += `<button class="input-btn btn-strike" onclick="executeInput(10)">STRIKE (X)</button>`;
+                            grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">G</button>`;
+                            for (let i = 9; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                        } else {
+                            grid.innerHTML += `<button class="input-btn btn-spare" onclick="executeInput('spare')">SPARE (/)</button>`;
+                            grid.innerHTML += `<button class="input-btn btn-gutter" onclick="executeInput(0)">-</button>`;
+                            for (let i = 10 - (second || 0) - 1; i >= 1; i--) grid.innerHTML += `<button class="input-btn" onclick="executeInput(${i})">${i}</button>`;
+                        }
+                    }
+                }
+            }
+            if (gameData[currentFrame][0] !== null) grid.innerHTML += `<button class="input-btn delete-btn" onclick="clearFrame()">このフレームをクリア</button>`;
+            grid.innerHTML += `<button class="input-btn cancel-btn" onclick="closeModal()">キャンセル</button>`;
+        }
+
+        function executeInput(val) {
+            if (val === 'spare') {
+                if (currentFrame < 10) gameData[currentFrame][1] = 10 - gameData[currentFrame][0];
+                else {
+                    if (currentShotIdx === 1) gameData[10][1] = 10 - gameData[10][0];
+                    if (currentShotIdx === 2) gameData[10][2] = 10 - gameData[10][1];
+                }
+            } else {
+                if (currentFrame < 10 && currentShotIdx === 0 && val === 10) { gameData[currentFrame][0] = 10; gameData[currentFrame][1] = 0; }
+                else gameData[currentFrame][currentShotIdx] = val;
+            }
+            closeModal(); saveData(); calculateScore();
+        }
+        function clearFrame() { gameData[currentFrame] = [null, null, null]; closeModal(); saveData(); calculateScore(); }
+    </script>
+</body>
+</html>
