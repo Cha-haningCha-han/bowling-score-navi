@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -12,8 +11,8 @@
     <meta property="og:title" content="ボウリング・スコアナビゲーターPro">
     <meta property="og:description" content="目標スコア達成ルートを自動計算！ボウリングのスコア表を画像でシェアしよう。">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://あなたのウェブサイトのURLを入れる予定地.com">
-    <meta property="og:image" content="https://あなたのウェブサイトのURLを入れる予定地.com/ogp-image.jpg">
+    <meta property="og:url" content="https://cha-haningcha-han.github.io/bowling-score-navi/">
+    <meta property="og:image" content="https://cha-haningcha-han.github.io/bowling-score-navi/ogp-image.png">
     <meta name="twitter:card" content="summary_large_image">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -76,6 +75,11 @@
 
         .message-area { background: #e1f5fe; border-left: 5px solid var(--primary); padding: 12px; border-radius: 6px; font-size: 0.95rem; line-height: 1.5; margin-bottom: 15px; }
 
+        /* アフィリエイト枠 */
+        .ad-space { margin-top: 20px; text-align: center; border-top: 1px dashed #ccc; padding-top: 15px; }
+        .ad-label { font-size: 0.75rem; color: #999; margin-bottom: 10px; }
+        .ad-placeholder { background: #f8f9fa; padding: 20px; border-radius: 8px; color: #aaa; font-size: 0.9rem; border: 1px solid #eee; }
+
         /* モーダル */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: white; padding: 20px; border-radius: 15px; width: 85%; max-width: 300px; text-align: center; }
@@ -126,6 +130,11 @@
             <div class="sim-title">🎯 目標達成へのシミュレーションルート</div>
             <div id="simBoardContainer"></div>
         </div>
+    </div>
+
+    <div class="ad-space">
+        <div class="ad-label">スポンサーリンク</div>
+        <div class="ad-placeholder">ここにアフィリエイト広告（ボウリング用品など）が表示されます</div>
     </div>
 
     <div class="modal-overlay" id="inputModal">
@@ -203,6 +212,7 @@
             const name = document.getElementById('playerName').value || '匿名ボウラー';
             const shareBtn = document.getElementById('shareBtn');
             const originalBtnText = shareBtn.innerText;
+            const siteUrl = "https://cha-haningcha-han.github.io/bowling-score-navi/";
             
             shareBtn.innerText = "生成中...";
             shareBtn.disabled = true;
@@ -213,7 +223,11 @@
                     const file = new File([blob], 'bowling_score.png', { type: 'image/png' });
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
-                            await navigator.share({ title: 'ボウリングスコア', text: `${name}さんのスコア履歴！ #ボウリング`, files: [file] });
+                            await navigator.share({ 
+                                title: 'ボウリングスコア', 
+                                text: `${name}さんのスコア履歴！計算ツールはこちら👉 ${siteUrl} #ボウリング #スコアナビゲーター`, 
+                                files: [file] 
+                            });
                         } catch (error) {}
                     } else {
                         const url = URL.createObjectURL(blob);
@@ -221,7 +235,7 @@
                         a.href = url; a.download = `bowling_score_${name}.png`;
                         document.body.appendChild(a); a.click(); document.body.removeChild(a);
                         URL.revokeObjectURL(url);
-                        alert("画像をダウンロードしました！");
+                        alert("画像をダウンロードしました！SNS等でシェアする際に「" + siteUrl + "」のURLも一緒に貼ってもらえると嬉しいです。");
                     }
                     shareBtn.innerText = originalBtnText; shareBtn.disabled = false;
                 }, 'image/png');
@@ -488,5 +502,4 @@
         function clearFrame() { gameData[currentFrame] = [null, null, null]; closeModal(); saveData(); calculateScore(); }
     </script>
 </body>
-</html>
 </html>
