@@ -1,9 +1,21 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ボウリング・ナビゲーターPro</title>
+    
+    <title>ボウリング・スコアナビゲーターPro | リアルタイムスコア計算＆目標シミュレーション</title>
+    <meta name="description" content="ボウリングのスコア計算から、目標達成に向けたリアルタイムシミュレーションまで！スコア表の画像シェアもできる無料のボウリング専用スコアナビゲーターアプリです。">
+    <meta name="keywords" content="ボウリング, スコア計算, シミュレーション, アプリ, ツール, スコアボード, 逆算">
+    
+    <meta property="og:title" content="ボウリング・スコアナビゲーターPro">
+    <meta property="og:description" content="目標スコア達成ルートを自動計算！ボウリングのスコア表を画像でシェアしよう。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://あなたのウェブサイトのURLを入れる予定地.com">
+    <meta property="og:image" content="https://あなたのウェブサイトのURLを入れる予定地.com/ogp-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -131,7 +143,6 @@
         let currentShotIdx = null;
 
         window.onload = () => {
-            // HTMLの骨組みをJSで生成（現在用とシミュレーション用）
             document.getElementById('mainBoardContainer').innerHTML = generateBoardHTML('', true);
             document.getElementById('simBoardContainer').innerHTML = generateBoardHTML('sim_', false, 'sim-board');
 
@@ -145,7 +156,6 @@
             calculateScore(); 
         };
 
-        // スコアボードのHTML構造を作る関数
         function generateBoardHTML(prefix, isInteractive, extraClass = '') {
             let html = `<div class="score-board ${extraClass}">`;
             for (let i = 1; i <= 5; i++) {
@@ -221,7 +231,6 @@
             }
         }
 
-        // --- コアロジック分離（汎用的なスコア計算） ---
         function computeScoreLogic(data) {
             let totalScore = 0;
             let displayTotals = Array(11).fill("");
@@ -275,7 +284,6 @@
             return { total: totalScore, display: displayTotals };
         }
 
-        // 画面のマス目を描画する共通関数
         function renderBoardUI(data, scoreData, prefix) {
             for (let f = 1; f <= 10; f++) {
                 document.getElementById(`${prefix}t${f}`).innerText = scoreData.display[f];
@@ -298,15 +306,12 @@
             }
         }
 
-        // 🎯 メインの計算処理
         function calculateScore() {
             const target = parseInt(document.getElementById('targetScore').value) || 0;
             const currentResult = computeScoreLogic(gameData);
             
-            // 1. メインボード描画
             renderBoardUI(gameData, currentResult, '');
 
-            // 2. 最大可能スコア計算（残りをすべてストライクで埋める）
             let maxData = JSON.parse(JSON.stringify(gameData));
             for(let i=1; i<=10; i++) {
                 if(maxData[i][0] === null) {
@@ -321,25 +326,22 @@
             let currentMax = maxScoreResult.display.slice().reverse().find(t => t !== "") || 0;
             document.getElementById('maxPossibleScore').innerText = currentMax;
 
-            // 3. 🎯 目標達成ルート（シミュレーション）の自動生成エンジン
             let simData = JSON.parse(JSON.stringify(gameData));
             let emptyFrames = [];
             for (let i = 1; i <= 10; i++) {
                 if (simData[i][0] === null) {
                     emptyFrames.push(i);
-                    // 基準は手堅い「9スペア」埋め
                     if (i < 10) simData[i] = [9, 1, null]; else simData[i] = [9, 1, 9];
                 }
             }
             
             if (emptyFrames.length > 0) {
                 if (currentMax <= target) {
-                    simData = maxData; // 無理な場合は最大スコアへのルートを表示
+                    simData = maxData;
                 } else {
                     let getSim = () => computeScoreLogic(simData).display.slice().reverse().find(t => t !== "") || 0;
                     let simScore = getSim();
                     
-                    // 足りない場合は後ろのフレームからストライクにアップグレード
                     if (simScore < target) {
                         for (let i = emptyFrames.length - 1; i >= 0; i--) {
                             let f = emptyFrames[i];
@@ -347,7 +349,6 @@
                             if (getSim() >= target) break;
                         }
                     }
-                    // オーバーしている場合は手前のフレームからオープン（ミス）にダウングレードして現実的に
                     let loopCount = 0;
                     while (getSim() > target && loopCount < 20) {
                         loopCount++;
@@ -362,7 +363,7 @@
                                 if (simData[10][0] === 10) simData[10] = [9, 1, 9];
                                 else if (simData[10][1] === 1) simData[10] = [9, 0, null];
                             }
-                            if (getSim() < target) simData[f] = orig; // 下がりすぎたら元に戻す
+                            if (getSim() < target) simData[f] = orig;
                             else { changed = true; break; }
                         }
                         if (!changed) break;
@@ -370,11 +371,9 @@
                 }
             }
             
-            // シミュレーションボードの描画
             let simResult = computeScoreLogic(simData);
             renderBoardUI(simData, simResult, 'sim_');
 
-            // 4. メッセージエリアの更新
             const messageArea = document.getElementById('messageArea');
             let currentCompletedFrame = currentResult.display.lastIndexOf(currentResult.display.slice().reverse().find(t => t !== "")) || 0;
             if(currentCompletedFrame === -1) currentCompletedFrame = 0;
@@ -404,7 +403,6 @@
             }
         }
 
-        // --- モーダル制御関連（前回から変更なし） ---
         function openInputModal(frameNum) {
             currentFrame = frameNum;
             if (frameNum < 10) {
@@ -490,4 +488,5 @@
         function clearFrame() { gameData[currentFrame] = [null, null, null]; closeModal(); saveData(); calculateScore(); }
     </script>
 </body>
+</html>
 </html>
